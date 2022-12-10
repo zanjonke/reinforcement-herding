@@ -5,6 +5,7 @@ from scipy.spatial.distance import cdist
 from pprint import pprint
 from numpy import linalg as LA
 import random
+import matplotlib.pyplot as plt
 np.random.seed(1)
 class Dog:
     
@@ -20,11 +21,6 @@ class Dog:
         self.N = params["N"]
         self.step_strength = 1
         self.possible_actions = [0, 1, 2, 3]
-        # 0 is stay ?
-        # 1 is move up
-        # 2 is move right
-        # 3 is move down
-        # 4 is move left
         self.step_vectors = {
             0: [0,1],
             1: [1,0],
@@ -310,10 +306,9 @@ class Sheepherding:
         goal_x, goal_y = self.goal
         goal_x = int(goal_x)*scaling_factor
         goal_y = int(goal_y)*scaling_factor
-        display[goal_x-scaling_factor:goal_x+scaling_factor, goal_y-scaling_factor:goal_y+scaling_factor,:] = (0,255,255)
-
+        display[goal_x-scaling_factor:goal_x+scaling_factor, goal_y-scaling_factor:goal_y+scaling_factor,:] = (0,255,255)        
         cv.imshow(title, display)
-        cv.waitKey()
+        cv.waitKey(1)
         cv.destroyAllWindows()
 
     def calc_dog_dists(self):
@@ -331,7 +326,7 @@ if __name__ == "__main__":
         "N":50,
         "L":150,
         "n":10,
-        "rs":50,
+        "rs":15,
         "ra":2,
         "pa":2,
         "c":1.05,
@@ -355,6 +350,7 @@ if __name__ == "__main__":
     for i in range(0,200):
         S.do_action(0)
         _,reward, done, _ = S.do_action(1)
+
         
         #S.render(title=str(i))
         print("reward: " + str(reward))
