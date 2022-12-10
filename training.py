@@ -15,8 +15,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import os
-
-from game import Game
+from sheepherding import Sheepherding
+#from game import Game
 
 
 class DQN(nn.Module):
@@ -96,7 +96,27 @@ class DQNRoomSolverTraining:
         self.map_name = map_name
         self.max_steps = max_steps
         
-        self.env = Game(visualize=False, load_map=True, map_name=self.map_name)
+        #self.env = Game(visualize=False, load_map=True, map_name=self.map_name)
+        strombom_typical_values = {
+            "N":50,
+            "L":150,
+            "n":10,
+            "rs":50,
+            "ra":2,
+            "pa":2,
+            "c":1.05,
+            "ps":1,
+            "h":0.5,
+            "delta":0.3,
+            "p":0.05,
+            "e":0.3,
+            "delta_s":1.5,
+            "goal":[10,10],
+            "goal_radius":30,
+            "max_steps_taken":500
+        }
+        #self.env = Game(visualize=False, load_map=True, map_name=self.map_name)
+        self.env = Sheepherding(**strombom_typical_values)
         m = self.env.m
         n = self.env.n
         self.input_size = ((m) // 2) * ((n) // 2)

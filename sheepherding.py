@@ -4,7 +4,8 @@ from uuid import uuid4
 from scipy.spatial.distance import cdist
 from pprint import pprint
 from numpy import linalg as LA
-
+import random
+np.random.seed(1)
 class Dog:
     
     def __init__(self, **params):
@@ -17,15 +18,35 @@ class Dog:
         self.behind_sheep = params["ra"]*10 #???
         self.ra = params["ra"]
         self.N = params["N"]
-
+        self.step_strength = 1
+        self.possible_actions = [1, 2, 3, 4, 5]
+        # 0 is stay ?
+        # 1 is move up
+        # 2 is move right
+        # 3 is move down
+        # 4 is move left
+        self.step_vectors = {
+            0: [0,1],
+            1: [1,0],
+            2: [0,-1],
+            3: [-1,0]
+        }
 
     def set_position(self, position):
         self.position = position
 
     # move the sheep
     # does not need to return a reward
-    def step(self, action):
-        pass
+    def step(self, action, L):
+        if not action in self.possible_actions:
+            raise Exception("unknown step for dog")        
+        move_vector = np.array(self.step_vectors[action])
+        new_position = self.position + move_vector*self.step_strength
+        if np.logical_or(new_position<0, new_position>L).any():
+            return 
+        self.position = new_position
+
+
     """
     def calc_GCM(self, sheep_positions):
         return np.mean([sheep_positions[sheep_id] for sheep_id in sheep_positions],axis=0)
@@ -48,8 +69,6 @@ class Dog:
         else:
             Pc = 1.5*(GCM-sheep_dists_to_GCM[farthest_sheep])
             
-
-
     """
     def get_position(self):
         return self.position
@@ -74,12 +93,9 @@ class Sheep:
     def set_position(self, position):
         self.position = position
     
-    def calc_LCM(self, sheep_positions, sheep_dists):
-        #print("calc_LCM: ")
-        closest_sheep = sorted(sheep_dists, key=sheep_dists.get)[1:self.n+1]
-        #print("closest_sheep: " + str(closest_sheep))
-        closest_sheep_positions = [sheep_positions[sheep_id] for sheep_id in closest_sheep]
-        #print("closest_sheep_positions: " + str(closest_sheep_positions))
+    def calc_LCM(self, sheep_positions, sheep_dists):        
+        closest_sheep = sorted(sheep_dists, key=sheep_dists.get)[1:self.n+1]        
+        closest_sheep_positions = [sheep_positions[sheep_id] for sheep_id in closest_sheep]        
         return np.mean(closest_sheep_positions, axis=0)
 
     def calc_repulsion_force_vector_from_too_close_neighborhood(self,sheep_positions,sheep_dists):
@@ -88,7 +104,7 @@ class Sheep:
             return np.array([0,0])    
         
         Ra = [(self.position-sheep_positions[sheep_id])/(LA.norm(self.position-sheep_positions[sheep_id])) for sheep_id in too_close_sheep]
-        print("PRE Ra: " + str(Ra))
+        
         return np.mean(Ra,axis=0)
         
 
@@ -105,12 +121,12 @@ class Sheep:
     def graze(self):
         self.position += np.random.uniform(low=-1, high=1, size=2)*0.1
 
+
     # move the sheep
     # does not need to return a reward
-    def step(self,sheep_positions, sheep_dists, dog_position, dog_dist):                                                        
+    def step(self,sheep_positions, sheep_dists, dog_position, dog_dist, L):                                                        
         
-        if dog_dist < self.rs:
-            print("UPDATING")
+        if dog_dist < self.rs:        
             C = self.calc_attraction_force_to_closest_n_sheep(sheep_positions, sheep_dists)
             C = C/LA.norm(C)
 
@@ -126,7 +142,12 @@ class Sheep:
             
             H = self.h*self.inertia + self.c*C + self.pa*Ra + self.ps*Rs + self.e*E
             
-            self.position += self.delta*H
+            new_position = self.position + self.delta*H
+            if np.logical_or(new_position<0, new_position>L).any():
+
+                return 
+
+            self.position = new_position
             self.inertia = H 
             
         else:
@@ -159,7 +180,15 @@ class Sheepherding:
         
         self.sheep = None
         self.dog = None
-        
+        self.goal = params["goal"]
+        self.goal_radius = params["goal_radius"]
+        self.random_init()
+        self.steps_taken=0
+        self.max_steps_taken = params["max_steps_taken"]
+        self.action_space = [0,1,2,3]
+
+    def reset(self):
+        self.steps_taken=0
         self.random_init()
 
     # randomly initialize state
@@ -183,18 +212,67 @@ class Sheepherding:
             ) for i in range(0,self.N)]
         self.dog = Dog(starting_position=list(np.random.uniform(low=0,high=0.5, size=2)*self.L), ra=self.ra, N=self.N, e=self.e)
 
+    def calc_GCM(self):        
+        return np.mean([sheep.get_position() for sheep in self.sheep],axis=0)
+
+    def calc_reward(self):
+        sheep_positions = [sheep.get_position() for sheep in self.sheep]    
+        total_reward = 0
+        GCM = self.calc_GCM()
+        max_dist_from_GCM = self.ra*(self.N**(2/3))
+        sheep_dists_from_centroid = cdist(sheep_positions, [GCM])
+        total_reward += sum([-1 if dist > max_dist_from_GCM else 0 for dist in sheep_dists_from_centroid]) # negative reward
+
+        sheep_dists_from_goal = cdist(sheep_positions, [self.goal])
+        reward_from_sheep_close_to_goal = sum([1 if dist < self.goal_radius else 0 for dist in sheep_dists_from_goal])
+        print("reward_from_sheep_close_to_goal: " + str(reward_from_sheep_close_to_goal) + ", N: " + str(self.N))
+        total_reward += reward_from_sheep_close_to_goal
+        if reward_from_sheep_close_to_goal == self.N: # if all sheep are close enough, the game is over
+            return reward_from_sheep_close_to_goal, True
+
+        return total_reward, False
+
+    def calc_centroid_based_observation_vector(self):        
+        sheep_pos = [sheep.get_position() for sheep in self.sheep]        
+        sheep_pos_dict = {sheep.id: sheep.get_position() for sheep in self.sheep}
+        sheep_centroid  = np.mean(sheep_pos,axis=0)        
+        sheep_dists_from_centroid = cdist(sheep_pos, [sheep_centroid])
+        sheep_dists_from_centroid_dict = {self.sheep[idxi].id: row[0] for idxi, row in enumerate(sheep_dists_from_centroid)}
+        farthest_sheep_from_centroid_id = max(sheep_dists_from_centroid_dict, key=sheep_dists_from_centroid_dict.get)                
+        farthest_sheep_from_centroid_position = sheep_pos_dict[farthest_sheep_from_centroid_id]                
+        dog_position = self.dog.get_position()
+        goal_position = self.goal
+        return np.concatenate([sheep_centroid.tolist(), farthest_sheep_from_centroid_position.tolist(), dog_position.tolist(), goal_position],axis=0)
+
     # move the dog in the wanted position
     # and change the position of the sheep accordingly
     # also return the next state, and reward for this action
-    def step(self, action):
+    #def step(self, action):
+    def do_action(self, action):
+
+        self.steps_taken += 1
+        self.dog.step(action,self.L)
+
         sheep_dists = self.calc_sheep_dists()
         dog_dists = self.calc_dog_dists()
         sheep_positions = {
             sheep.id:sheep.get_position() for sheep in self.sheep
-        }
-        for sheep in self.sheep:            
-            sheep.step(sheep_positions=sheep_positions, sheep_dists=sheep_dists[sheep.id], dog_position=self.dog.get_position(), dog_dist=dog_dists[sheep.id])
+        }        
 
+        for sheep in self.sheep:            
+            sheep.step(sheep_positions=sheep_positions, sheep_dists=sheep_dists[sheep.id], dog_position=self.dog.get_position(), dog_dist=dog_dists[sheep.id],L=self.L)
+
+        obs = self.calc_centroid_based_observation_vector()
+        reward, done = self.calc_reward()        
+
+        if done:
+            return obs, reward, done
+
+        if self.steps_taken > self.max_steps_taken:
+            return obs, reward, True
+
+        return obs, reward, False
+        
         #self.dog.strombom_step(sheep_positions, sheep_dists)
 
     def render(self, title):
@@ -210,8 +288,22 @@ class Sheepherding:
         dog_x, dog_y = self.dog.get_position()
         dog_x = int(dog_x)*scaling_factor
         dog_y = int(dog_y)*scaling_factor
-
+        
         display[dog_x-scaling_factor:dog_x+scaling_factor, dog_y-scaling_factor:dog_y+scaling_factor,:] = (255,0,0)
+
+        obs = self.calc_centroid_based_observation_vector()
+        obs = obs.astype(int)        
+        obs *= scaling_factor        
+        
+
+        display[obs[0]-(scaling_factor*4):obs[0]+(scaling_factor*4), obs[1]-(scaling_factor*4):obs[1]+(scaling_factor*4),:] = (0,255,0)
+        display[obs[2]-scaling_factor:obs[2]+scaling_factor, obs[3]-scaling_factor:obs[3]+scaling_factor,:] = (0,0,255)
+
+        goal_x, goal_y = self.goal
+        goal_x = int(goal_x)*scaling_factor
+        goal_y = int(goal_y)*scaling_factor
+        display[goal_x-scaling_factor:goal_x+scaling_factor, goal_y-scaling_factor:goal_y+scaling_factor,:] = (0,255,255)
+
         cv.imshow(title, display)
         cv.waitKey()  
         cv.destroyAllWindows()
@@ -227,11 +319,11 @@ class Sheepherding:
         return {self.sheep[idxi].id: {self.sheep[idxj].id:dist for idxj, dist in enumerate(row)} for idxi,row in enumerate(sheep_dists)}        
 
 if __name__ == "__main__":
-    typical_values = {
-        "N":60,
+    strombom_typical_values = {
+        "N":50,
         "L":150,
         "n":10,
-        "rs":120,
+        "rs":50,
         "ra":2,
         "pa":2,
         "c":1.05,
@@ -240,10 +332,21 @@ if __name__ == "__main__":
         "delta":0.3,
         "p":0.05,
         "e":0.3,
-        "delta_s":1.5
+        "delta_s":1.5,
+        "goal":[10,10],
+        "goal_radius":30,
+        "max_steps_taken":500
     }
-    S = Sheepherding(**typical_values)
+
+    # 1 desno
+    # 2 dol
+    # 3 levo
+    # 4 gor
+    S = Sheepherding(**strombom_typical_values)
     for i in range(0,200):
-        S.step(None)
+        S.step(0)
+        _,reward, done = S.step(1)
+        
         S.render(title=str(i))
-        print("i: " + str(i))
+        print("reward: " + str(reward))
+        
