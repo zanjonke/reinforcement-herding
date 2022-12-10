@@ -19,7 +19,7 @@ class Dog:
         self.ra = params["ra"]
         self.N = params["N"]
         self.step_strength = 1
-        self.possible_actions = [1, 2, 3, 4, 5]
+        self.possible_actions = [0, 1, 2, 3]
         # 0 is stay ?
         # 1 is move up
         # 2 is move right
@@ -160,7 +160,7 @@ class Sheep:
 
 class Sheepherding:
     
-    def __init__(self, **params):   
+    def __init__(self, **params):
         self.N = params["N"]                 # number of sheep
         self.L = params["L"]                 # size of the grid
 
@@ -186,10 +186,15 @@ class Sheepherding:
         self.steps_taken=0
         self.max_steps_taken = params["max_steps_taken"]
         self.action_space = [0,1,2,3]
+        self.render_mode = params["render_mode"]
 
     def reset(self):
         self.steps_taken=0
         self.random_init()
+
+        initial_state = self.calc_centroid_based_observation_vector()
+        return initial_state
+
 
     # randomly initialize state
     def random_init(self):
@@ -225,12 +230,12 @@ class Sheepherding:
 
         sheep_dists_from_goal = cdist(sheep_positions, [self.goal])
         reward_from_sheep_close_to_goal = sum([1 if dist < self.goal_radius else 0 for dist in sheep_dists_from_goal])
-        print("reward_from_sheep_close_to_goal: " + str(reward_from_sheep_close_to_goal) + ", N: " + str(self.N))
+        #print("reward_from_sheep_close_to_goal: " + str(reward_from_sheep_close_to_goal) + ", N: " + str(self.N))
         total_reward += reward_from_sheep_close_to_goal
         if reward_from_sheep_close_to_goal == self.N: # if all sheep are close enough, the game is over
-            return reward_from_sheep_close_to_goal, True
+            return reward_from_sheep_close_to_goal, True, reward_from_sheep_close_to_goal
 
-        return total_reward, False
+        return total_reward, False, reward_from_sheep_close_to_goal
 
     def calc_centroid_based_observation_vector(self):        
         sheep_pos = [sheep.get_position() for sheep in self.sheep]        
@@ -242,7 +247,7 @@ class Sheepherding:
         farthest_sheep_from_centroid_position = sheep_pos_dict[farthest_sheep_from_centroid_id]                
         dog_position = self.dog.get_position()
         goal_position = self.goal
-        return np.concatenate([sheep_centroid.tolist(), farthest_sheep_from_centroid_position.tolist(), dog_position.tolist(), goal_position],axis=0)
+        return np.concatenate([sheep_centroid, farthest_sheep_from_centroid_position, dog_position, goal_position],axis=0)
 
     # move the dog in the wanted position
     # and change the position of the sheep accordingly
@@ -263,15 +268,18 @@ class Sheepherding:
             sheep.step(sheep_positions=sheep_positions, sheep_dists=sheep_dists[sheep.id], dog_position=self.dog.get_position(), dog_dist=dog_dists[sheep.id],L=self.L)
 
         obs = self.calc_centroid_based_observation_vector()
-        reward, done = self.calc_reward()        
+        reward, done, sheep_near_goal = self.calc_reward()
+
+        if self.render_mode :
+            self.render(str(self.steps_taken))
 
         if done:
-            return obs, reward, done
+            return obs, reward, done, sheep_near_goal
 
         if self.steps_taken > self.max_steps_taken:
-            return obs, reward, True
+            return obs, reward, True, sheep_near_goal
 
-        return obs, reward, False
+        return obs, reward, False, sheep_near_goal
         
         #self.dog.strombom_step(sheep_positions, sheep_dists)
 
@@ -305,7 +313,7 @@ class Sheepherding:
         display[goal_x-scaling_factor:goal_x+scaling_factor, goal_y-scaling_factor:goal_y+scaling_factor,:] = (0,255,255)
 
         cv.imshow(title, display)
-        cv.waitKey()  
+        cv.waitKey()
         cv.destroyAllWindows()
 
     def calc_dog_dists(self):
@@ -335,7 +343,8 @@ if __name__ == "__main__":
         "delta_s":1.5,
         "goal":[10,10],
         "goal_radius":30,
-        "max_steps_taken":500
+        "max_steps_taken":500,
+        "render_mode": True
     }
 
     # 1 desno
@@ -344,9 +353,9 @@ if __name__ == "__main__":
     # 4 gor
     S = Sheepherding(**strombom_typical_values)
     for i in range(0,200):
-        S.step(0)
-        _,reward, done = S.step(1)
+        S.do_action(0)
+        _,reward, done, _ = S.do_action(1)
         
-        S.render(title=str(i))
+        #S.render(title=str(i))
         print("reward: " + str(reward))
         
