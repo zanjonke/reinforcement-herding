@@ -5,7 +5,8 @@ from scipy.spatial.distance import cdist
 from pprint import pprint
 from numpy import linalg as LA
 import random
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
+import math
 np.random.seed(1)
 class Dog:
     
@@ -216,22 +217,30 @@ class Sheepherding:
     def calc_GCM(self):        
         return np.mean([sheep.get_position() for sheep in self.sheep],axis=0)
 
-    def calc_reward(self):
+    def distance(self, p1, p2):
+        return math.sqrt(math.pow(p1[0] - p2[0], 2) + math.pow(p1[1] - p2[1], 2))
+
+    def calc_reward(self, collect):
         sheep_positions = [sheep.get_position() for sheep in self.sheep]    
         total_reward = 0
         GCM = self.calc_GCM()
         max_dist_from_GCM = self.ra*(self.N**(2/3))
         sheep_dists_from_centroid = cdist(sheep_positions, [GCM])
         total_reward += sum([-1 if dist > max_dist_from_GCM else 0 for dist in sheep_dists_from_centroid]) # negative reward
+        deformation = total_reward
+        dist_to_goal = self.distance(GCM, self.goal)
 
         sheep_dists_from_goal = cdist(sheep_positions, [self.goal])
         reward_from_sheep_close_to_goal = sum([1 if dist < self.goal_radius else 0 for dist in sheep_dists_from_goal])
         #print("reward_from_sheep_close_to_goal: " + str(reward_from_sheep_close_to_goal) + ", N: " + str(self.N))
         total_reward += reward_from_sheep_close_to_goal
         if reward_from_sheep_close_to_goal == self.N: # if all sheep are close enough, the game is over
-            return reward_from_sheep_close_to_goal, True, reward_from_sheep_close_to_goal
+            return reward_from_sheep_close_to_goal, True, reward_from_sheep_close_to_goal, deformation
 
-        return total_reward, False, reward_from_sheep_close_to_goal
+        if not collect :
+            total_reward -= dist_to_goal / 5
+
+        return total_reward, False, reward_from_sheep_close_to_goal, deformation
 
     def calc_centroid_based_observation_vector(self):        
         sheep_pos = [sheep.get_position() for sheep in self.sheep]        
@@ -249,7 +258,7 @@ class Sheepherding:
     # and change the position of the sheep accordingly
     # also return the next state, and reward for this action
     #def step(self, action):
-    def do_action(self, action):
+    def do_action(self, action, collect):
 
         self.steps_taken += 1
         self.dog.step(action,self.L)
@@ -264,18 +273,18 @@ class Sheepherding:
             sheep.step(sheep_positions=sheep_positions, sheep_dists=sheep_dists[sheep.id], dog_position=self.dog.get_position(), dog_dist=dog_dists[sheep.id],L=self.L)
 
         obs = self.calc_centroid_based_observation_vector()
-        reward, done, sheep_near_goal = self.calc_reward()
+        reward, done, sheep_near_goal, deformation = self.calc_reward(collect)
 
         if self.render_mode :
             self.render(str(self.steps_taken))
 
         if done:
-            return obs, reward, done, sheep_near_goal
+            return obs, reward, done, sheep_near_goal, deformation
 
         if self.steps_taken > self.max_steps_taken:
-            return obs, reward, True, sheep_near_goal
+            return obs, reward, True, sheep_near_goal, deformation
 
-        return obs, reward, False, sheep_near_goal
+        return obs, reward, False, sheep_near_goal, deformation
         
         #self.dog.strombom_step(sheep_positions, sheep_dists)
 

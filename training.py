@@ -25,9 +25,11 @@ class DQN(nn.Module):
         self.fc1 = nn.Linear(8, 32)
         self.fc2 = nn.Linear(32, 128)
         self.fc3 = nn.Linear(128, 512)
-        self.fc4 = nn.Linear(512, 4)
+        self.fc4 = nn.Linear(512, 1024)
+        self.fc5 = nn.Linear(1024, 2048)
+        self.fc6 = nn.Linear(2048, 4)
 
-        self.leaky = nn.LeakyReLU(0.1)
+        self.leaky = nn.LeakyReLU(0.05)
         
         #self.lstm = nn.LSTM(input_size, 256, 2, dropout=0.2)
         #self.fc = nn.Linear(256, 4)
@@ -36,14 +38,20 @@ class DQN(nn.Module):
 
         x = self.fc1(x)
         x = F.relu(x)
-        x = nn.Dropout(p=0.2)(x)
+        x = nn.Dropout(p=0.4)(x)
         x = self.fc2(x)
         x = F.relu(x)
-        x = nn.Dropout(p=0.2)(x)
+        x = nn.Dropout(p=0.4)(x)
         x = self.fc3(x)
         x = F.relu(x)
-        x = nn.Dropout(p=0.2)(x)
+        x = nn.Dropout(p=0.4)(x)
         x = self.fc4(x)
+        x = F.relu(x)
+        x = nn.Dropout(p=0.4)(x)
+        x = self.fc5(x)
+        x = F.relu(x)
+        x = nn.Dropout(p=0.4)(x)
+        x = self.fc6(x)
         
         return x
     
