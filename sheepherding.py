@@ -221,26 +221,30 @@ class Sheepherding:
         return math.sqrt(math.pow(p1[0] - p2[0], 2) + math.pow(p1[1] - p2[1], 2))
 
     def calc_reward(self, collect):
+        max_dist_in_map = np.sqrt(self.L**2 + self.L**2)
         sheep_positions = [sheep.get_position() for sheep in self.sheep]    
         total_reward = 0
         GCM = self.calc_GCM()
         max_dist_from_GCM = self.ra*(self.N**(2/3))
         sheep_dists_from_centroid = cdist(sheep_positions, [GCM])
-        total_reward += sum([-1 if dist > max_dist_from_GCM else 0 for dist in sheep_dists_from_centroid]) # negative reward
+        #total_reward += sum([-1 if dist > max_dist_from_GCM else 0 for dist in sheep_dists_from_centroid]) # negative reward
+        #max_sheep_dist_from_GCM = max(sheep_dists_from_centroid) 
+        total_reward += sum([-(dist/max_dist_in_map) if dist > max_dist_from_GCM else 0 for dist in sheep_dists_from_centroid]) # negative reward
         deformation = total_reward
         dist_to_goal = self.distance(GCM, self.goal)
 
         sheep_dists_from_goal = cdist(sheep_positions, [self.goal])
-        reward_from_sheep_close_to_goal = sum([1 if dist < self.goal_radius else 0 for dist in sheep_dists_from_goal])
+        num_of_sheep_close_to_goal = sum([1 if dist < self.goal_radius else 0 for dist in sheep_dists_from_goal])
+        reward_from_distances = sum([dist**(-1)/max_dist_in_map for dist in sheep_dists_from_goal])
         #print("reward_from_sheep_close_to_goal: " + str(reward_from_sheep_close_to_goal) + ", N: " + str(self.N))
-        total_reward += reward_from_sheep_close_to_goal
-        if reward_from_sheep_close_to_goal == self.N: # if all sheep are close enough, the game is over
-            return reward_from_sheep_close_to_goal, True, reward_from_sheep_close_to_goal, deformation
+        total_reward += reward_from_distances
+        if num_of_sheep_close_to_goal == self.N: # if all sheep are close enough, the game is over
+            return reward_from_distances, True, num_of_sheep_close_to_goal, deformation
 
         if not collect :
             total_reward -= dist_to_goal / 5
 
-        return total_reward, False, reward_from_sheep_close_to_goal, deformation
+        return total_reward, False, num_of_sheep_close_to_goal, deformation
 
     def calc_centroid_based_observation_vector(self):        
         sheep_pos = [sheep.get_position() for sheep in self.sheep]        
