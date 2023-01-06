@@ -8,6 +8,10 @@ import random
 #import matplotlib.pyplot as plt
 import math
 np.random.seed(1)
+from PIL import Image
+from PIL import ImageFont
+from PIL import ImageDraw 
+
 class Dog:
     
     def __init__(self, **params):
@@ -20,7 +24,7 @@ class Dog:
         self.behind_sheep = params["ra"]*10 #???
         self.ra = params["ra"]
         self.N = params["N"]
-        self.step_strength = 1
+        self.step_strength = params["step_strength"]
         self.possible_actions = [0, 1, 2, 3]
         self.step_vectors = {
             0: [0,1],
@@ -184,11 +188,33 @@ class Sheepherding:
         self.max_steps_taken = params["max_steps_taken"]
         self.action_space = [0,1,2,3]
         self.render_mode = params["render_mode"]
+        self.store_video_file_name = params.get("store_video_file_name", "sheepherding_game.mp4")
+        self.step_strength = params.get("step_strength", 1)
+        self.frames = []
+        self.current_reward = 0
+
+    def store_frames_in_mp4(self):      
+        if len(self.frames)==0:
+            return
+        
+        # Define the codec and create VideoWriter object
+        fourcc = cv.VideoWriter_fourcc(*'MP4V')
+        
+        out = cv.VideoWriter(self.store_video_file_name,fourcc, 20.0, self.frames[0].shape[0:2])
+
+        for frame in self.frames:            
+            out.write(frame)
+            
+        # Release everything if job is finished        
+        out.release()        
+
 
     def reset(self):
+        self.current_reward = 0
         self.steps_taken=0
         self.random_init()
-
+        self.frames = []
+        
         initial_state = self.calc_centroid_based_observation_vector()
         return initial_state
 
@@ -212,13 +238,22 @@ class Sheepherding:
                 p=self.p,
                 e=self.e
             ) for i in range(0,self.N)]
-        self.dog = Dog(starting_position=list(np.random.uniform(low=0,high=0.5, size=2)*self.L), ra=self.ra, N=self.N, e=self.e)
+        self.dog = Dog(starting_position=list(np.random.uniform(low=0.8,high=1.0, size=2)*self.L), ra=self.ra, N=self.N, e=self.e,step_strength=self.step_strength)
+        #self.goal = list(np.random.uniform(low=0,high=0.5, size=2)*self.L)
 
     def calc_GCM(self):        
         return np.mean([sheep.get_position() for sheep in self.sheep],axis=0)
 
     def distance(self, p1, p2):
         return math.sqrt(math.pow(p1[0] - p2[0], 2) + math.pow(p1[1] - p2[1], 2))
+
+    #def get_sheep_out_of_group(self):
+    #    sheep_positions = [sheep.get_position() for sheep in self.sheep]    
+    #    
+    #    GCM = self.calc_GCM()
+    #    max_dist_from_GCM = self.ra*(self.N**(2/3))
+    #    sheep_dists_from_centroid = cdist(sheep_positions, [GCM])
+    #    return [idx for idx, dist in enumerate(sheep_dists_from_centroid) if dist > max_dist_from_GCM] # negative reward
 
     def calc_reward(self, collect):
         max_dist_in_map = np.sqrt(self.L**2 + self.L**2)
@@ -262,7 +297,7 @@ class Sheepherding:
     # and change the position of the sheep accordingly
     # also return the next state, and reward for this action
     #def step(self, action):
-    def do_action(self, action, collect):
+    def do_action(self, action, collect=True):
 
         self.steps_taken += 1
         self.dog.step(action,self.L)
@@ -279,20 +314,25 @@ class Sheepherding:
         obs = self.calc_centroid_based_observation_vector()
         reward, done, sheep_near_goal, deformation = self.calc_reward(collect)
 
+        #print("reward: " + str(reward))
+        #exit()
+        self.current_reward += reward
         if self.render_mode :
-            self.render(str(self.steps_taken))
+            self.render()
 
         if done:
+            self.store_frames_in_mp4()
             return obs, reward, done, sheep_near_goal, deformation
 
         if self.steps_taken > self.max_steps_taken:
+            self.store_frames_in_mp4()
             return obs, reward, True, sheep_near_goal, deformation
 
         return obs, reward, False, sheep_near_goal, deformation
         
         #self.dog.strombom_step(sheep_positions, sheep_dists)
 
-    def render(self, title):
+    def render(self):
         scaling_factor = 4
         display = np.ones((self.L*scaling_factor, self.L*scaling_factor, 3), np.uint8)
         for sheep in self.sheep:
@@ -313,16 +353,24 @@ class Sheepherding:
         obs *= scaling_factor        
         
 
-        display[obs[0]-(scaling_factor*4):obs[0]+(scaling_factor*4), obs[1]-(scaling_factor*4):obs[1]+(scaling_factor*4),:] = (0,255,0)
+        display[obs[0]-(scaling_factor):obs[0]+(scaling_factor), obs[1]-(scaling_factor):obs[1]+(scaling_factor),:] = (0,255,0)
         display[obs[2]-scaling_factor:obs[2]+scaling_factor, obs[3]-scaling_factor:obs[3]+scaling_factor,:] = (0,0,255)
 
         goal_x, goal_y = self.goal
         goal_x = int(goal_x)*scaling_factor
         goal_y = int(goal_y)*scaling_factor
         display[goal_x-scaling_factor:goal_x+scaling_factor, goal_y-scaling_factor:goal_y+scaling_factor,:] = (0,255,255)        
-        cv.imshow(title, display)
-        cv.waitKey(1)
-        cv.destroyAllWindows()
+        img = Image.fromarray(display)
+        draw = ImageDraw.Draw(img)
+        # font = ImageFont.truetype(<font-file>, <font-size>)
+        font = ImageFont.truetype("Aaargh/Aaargh.ttf", 32)
+        # draw.text((x, y),"Sample Text",(r,g,b))
+        
+        draw.text((0, 0),"Current reward: " + str(np.round(self.current_reward,2)) + ", current step: " + str(self.steps_taken),(255,255,255),font=font)
+        self.frames.append(np.array(img))
+        #cv.imshow(title, display)
+        #cv.waitKey(1)
+        #cv.destroyAllWindows()
 
     def calc_dog_dists(self):
         sheep_pos = [sheep.get_position() for sheep in self.sheep]
@@ -336,7 +384,7 @@ class Sheepherding:
 
 if __name__ == "__main__":
     strombom_typical_values = {
-        "N":50,
+        "N":10,
         "L":150,
         "n":10,
         "rs":15,
@@ -361,10 +409,11 @@ if __name__ == "__main__":
     # 4 gor
     S = Sheepherding(**strombom_typical_values)
     for i in range(0,200):
-        S.do_action(0)
-        _,reward, done, _ = S.do_action(1)
+        _,reward, done, _, _ = S.do_action(0,collect=False)
+        _,reward, done, _, _ = S.do_action(1,collect=False) 
+        #= S.do_action(1)
 
-        
         #S.render(title=str(i))
         print("reward: " + str(reward))
+    S.store_frames_in_mp4()
         
