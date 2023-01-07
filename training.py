@@ -22,12 +22,12 @@ from sheepherding import Sheepherding
 class DQN(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(8, 32)
-        self.fc2 = nn.Linear(32, 128)
-        self.fc3 = nn.Linear(128, 512)
-        self.fc4 = nn.Linear(512, 1024)
-        self.fc5 = nn.Linear(1024, 2048)
-        self.fc6 = nn.Linear(2048, 4)
+        self.fc1 = nn.Linear(8, 512)
+        self.fc2 = nn.Linear(512, 2048)
+        self.fc3 = nn.Linear(2048, 4)
+        #self.fc4 = nn.Linear(512, 1024)
+        #self.fc5 = nn.Linear(1024, 2048)
+        #self.fc6 = nn.Linear(2048, 4)
 
         self.leaky = nn.LeakyReLU(0.05)
         
@@ -37,21 +37,21 @@ class DQN(nn.Module):
     def forward(self, x): 
 
         x = self.fc1(x)
-        x = F.relu(x)
-        x = nn.Dropout(p=0.4)(x)
+        x = nn.ReLU()(x)
+        x = nn.Dropout(p=0.3)(x)
         x = self.fc2(x)
-        x = F.relu(x)
-        x = nn.Dropout(p=0.4)(x)
+        x = nn.ReLU()(x)
+        x = nn.Dropout(p=0.3)(x)
         x = self.fc3(x)
-        x = F.relu(x)
-        x = nn.Dropout(p=0.4)(x)
-        x = self.fc4(x)
-        x = F.relu(x)
-        x = nn.Dropout(p=0.4)(x)
-        x = self.fc5(x)
-        x = F.relu(x)
-        x = nn.Dropout(p=0.4)(x)
-        x = self.fc6(x)
+        #x = F.relu(x)
+        #x = nn.Dropout(p=0.4)(x)
+        #x = self.fc4(x)
+        #x = F.relu(x)
+        #x = nn.Dropout(p=0.4)(x)
+        #x = self.fc5(x)
+        #x = F.relu(x)
+        #x = nn.Dropout(p=0.4)(x)
+        #x = self.fc6(x)
         
         return x
     
@@ -59,7 +59,7 @@ class DQN(nn.Module):
 class DQNShepherdTraining:
             
     def __init__(self, n_episodes=30000, gamma=0.95, batch_size=128, 
-                       epsilon=1.0, epsilon_min=0.1, epsilon_log_decay=0.9, max_steps=200):
+                       epsilon=1.0, epsilon_min=0.1, epsilon_log_decay=0.9, max_steps=500):
         self.memory = deque(maxlen=2000)
 
         self.max_steps = max_steps
@@ -81,7 +81,7 @@ class DQNShepherdTraining:
             "delta_s":1.5,
             "goal":[10,10],
             "goal_radius":30,
-            "max_steps_taken":500,
+            "max_steps_taken":max_steps,
             "render_mode":False
         }
         #self.env = Game(visualize=False, load_map=True, map_name=self.map_name)
@@ -99,7 +99,7 @@ class DQNShepherdTraining:
         self.dqn = DQN()
         self.dqn.to(device=self.device)
         self.criterion = torch.nn.MSELoss()
-        self.opt = torch.optim.Adam(self.dqn.parameters(), lr=0.00025)
+        self.opt = torch.optim.Adam(self.dqn.parameters(), lr=0.0004)
         
     def save_model(self) :
         torch.save(self.dqn.state_dict(), 'models/model.pt')
@@ -166,14 +166,14 @@ class DQNShepherdTraining:
                 i = 0
                 while not done:
                     action = self.choose_action(state, self.get_epsilon(e))
-                    next_state, reward, done, sheep_near_goal = self.env.do_action(action)
+                    next_state, reward, done, sheep_near_goal, _ = self.env.do_action(action, False)
                     next_state = self.preprocess_state(next_state)
                     actions.append((self.action_to_letter(action), reward))
                     self.remember(state, action, reward, next_state, done)
                     state = next_state
 
                     i += 1
-                    if i >= self.max_steps  :
+                    if i > self.max_steps  :
                         done = True
                         scores.append(sheep_near_goal)
 

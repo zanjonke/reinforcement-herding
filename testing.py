@@ -48,7 +48,6 @@ class DQNSheepHerder:
         }
         self.env = Sheepherding(**strombom_typical_values)
 
-
         self.dqn = DQN()
         self.load_model()
         self.dqn.to(device=self.device)
@@ -84,10 +83,11 @@ class DQNSheepHerder:
             i += 1
             action = self.choose_action(state)
             print(str(i) + '. step | Action : ' + self.action_to_letter(action))
-            next_state, reward, done, _ = self.env.do_action(action)
+            next_state, reward, done, _, _ = self.env.do_action(action, True)
             next_state = self.preprocess_state(next_state)
             actions.append(self.action_to_letter(action))
             state = next_state
+            print(reward)
 
             #time.sleep(2.5)
 

@@ -7,7 +7,7 @@ from numpy import linalg as LA
 import random
 #import matplotlib.pyplot as plt
 import math
-np.random.seed(1)
+#np.random.seed(1)
 class Dog:
     
     def __init__(self, **params):
@@ -227,9 +227,9 @@ class Sheepherding:
         GCM = self.calc_GCM()
         max_dist_from_GCM = self.ra*(self.N**(2/3))
         sheep_dists_from_centroid = cdist(sheep_positions, [GCM])
-        #total_reward += sum([-1 if dist > max_dist_from_GCM else 0 for dist in sheep_dists_from_centroid]) # negative reward
+        total_reward += sum([-1 if dist > max_dist_from_GCM else 0 for dist in sheep_dists_from_centroid]) # negative reward
         #max_sheep_dist_from_GCM = max(sheep_dists_from_centroid) 
-        total_reward += sum([-(dist/max_dist_in_map) if dist > max_dist_from_GCM else 0 for dist in sheep_dists_from_centroid]) # negative reward
+        #total_reward += sum([-(dist/max_dist_in_map) if dist > max_dist_from_GCM else 0 for dist in sheep_dists_from_centroid]) # negative reward
         deformation = total_reward
         dist_to_goal = self.distance(GCM, self.goal)
 
@@ -237,7 +237,7 @@ class Sheepherding:
         num_of_sheep_close_to_goal = sum([1 if dist < self.goal_radius else 0 for dist in sheep_dists_from_goal])
         reward_from_distances = sum([dist**(-1)/max_dist_in_map for dist in sheep_dists_from_goal])
         #print("reward_from_sheep_close_to_goal: " + str(reward_from_sheep_close_to_goal) + ", N: " + str(self.N))
-        total_reward += reward_from_distances
+        total_reward += num_of_sheep_close_to_goal
         if num_of_sheep_close_to_goal == self.N: # if all sheep are close enough, the game is over
             return reward_from_distances, True, num_of_sheep_close_to_goal, deformation
 

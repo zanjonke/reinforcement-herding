@@ -27,8 +27,8 @@ class DQN(nn.Module):
         self.fc1 = nn.Linear(8, 32)
         self.fc2 = nn.Linear(32, 128)
         self.fc3 = nn.Linear(128, 512)
-        self.fc4 = nn.Linear(512, 4)
-        #self.fc5 = nn.Linear(1024, 4)
+        self.fc4 = nn.Linear(512, 1024)
+        self.fc5 = nn.Linear(1024, 4)
         #self.fc6 = nn.Linear(2048, 4)
 
         self.leaky = nn.LeakyReLU(0.1)
@@ -39,17 +39,17 @@ class DQN(nn.Module):
     def forward(self, x):
         x = self.fc1(x)
         x = F.relu(x)
-        x = nn.Dropout(p=0.4)(x)
+        x = nn.Dropout(p=0.25)(x)
         x = self.fc2(x)
         x = F.relu(x)
-        x = nn.Dropout(p=0.4)(x)
+        x = nn.Dropout(p=0.25)(x)
         x = self.fc3(x)
         x = F.relu(x)
-        x = nn.Dropout(p=0.4)(x)
+        x = nn.Dropout(p=0.25)(x)
         x = self.fc4(x)
-        #x = F.relu(x)
-        #x = nn.Dropout(p=0.4)(x)
-        #x = self.fc5(x)
+        x = F.relu(x)
+        x = nn.Dropout(p=0.25)(x)
+        x = self.fc5(x)
         #x = F.relu(x)
         #x = nn.Dropout(p=0.4)(x)
         #x = self.fc6(x)
@@ -68,7 +68,7 @@ class DQNDoubleShepherdTraining:
 
         # self.env = Game(visualize=False, load_map=True, map_name=self.map_name)
         strombom_typical_values = {
-            "N": 10,
+            "N": 40,
             "L": 150,
             "n": 10,
             "rs": 50,
@@ -192,6 +192,7 @@ class DQNDoubleShepherdTraining:
                 done = False
                 self.collect = True
                 i = 0
+                max_sheep = 0
                 while not done:
                     action = self.choose_action(state, self.get_epsilon(e))
                     next_state, reward, done, sheep_near_goal, deformation = self.env.do_action(action, self.collect)
@@ -200,12 +201,15 @@ class DQNDoubleShepherdTraining:
                     self.remember(state, action, reward, next_state, done)
                     state = next_state
 
-                    self.collect = False if deformation > -2 else True
+                    if max_sheep < sheep_near_goal :
+                        max_sheep = sheep_near_goal
+
+                    #self.collect = False if deformation > -2 else True
 
                     i += 1
                     if i >= self.max_steps:
                         done = True
-                        scores.append(sheep_near_goal)
+                        scores.append(max_sheep)
 
                     if done:
                         steps.append(i)
