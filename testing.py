@@ -28,7 +28,7 @@ class DQNSheepHerder:
         self.model = model
 
         strombom_typical_values = {
-            "N": 10,
+            "N": 50,
             "L": 150,
             "n": 10,
             "rs": 50,

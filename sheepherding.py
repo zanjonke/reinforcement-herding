@@ -179,12 +179,13 @@ class Sheepherding:
         self.e = params["e"]                 # relative strength of angular noise                              -> relevant for the sheep and the sheperd
 
         self.delta_s = params["delta_s"]     # sheperd displacement per time step                              -> relevant for the sheperd
-        
+
+        self.mode = params["mode"]           # observation vector type -- {'strombom', 'knearest', 'pieslice'}
+        self.k = 10
         self.sheep = None
         self.dog = None
         self.goal = params["goal"]
         self.goal_radius = params["goal_radius"]
-        self.random_init()
         self.steps_taken=0
         self.max_steps_taken = params["max_steps_taken"]
         self.action_space = [0,1,2,3]
@@ -193,6 +194,7 @@ class Sheepherding:
         self.step_strength = params.get("step_strength", 1)
         self.frames = []
         self.current_reward = 0
+        self.random_init()
 
     def store_frames_in_mp4(self):      
         if len(self.frames)==0:
@@ -216,7 +218,7 @@ class Sheepherding:
         self.random_init()
         self.frames = []
         
-        initial_state = self.calc_centroid_based_observation_vector()
+        initial_state = self.calc_observation_vector(self.mode)
         return initial_state
 
 
@@ -273,26 +275,52 @@ class Sheepherding:
         num_of_sheep_close_to_goal = sum([1 if dist < self.goal_radius else 0 for dist in sheep_dists_from_goal])
         reward_from_distances = sum([dist**(-1)/max_dist_in_map for dist in sheep_dists_from_goal])
         #print("reward_from_sheep_close_to_goal: " + str(reward_from_sheep_close_to_goal) + ", N: " + str(self.N))
-        total_reward += num_of_sheep_close_to_goal
+        #total_reward += num_of_sheep_close_to_goal
         if num_of_sheep_close_to_goal == self.N: # if all sheep are close enough, the game is over
-            return reward_from_distances, True, num_of_sheep_close_to_goal, deformation
+            return reward_from_distances + 1000, True, num_of_sheep_close_to_goal, deformation
 
         if not collect :
-            total_reward -= dist_to_goal / 5
+            total_reward = (dist_to_goal / (-5)) + num_of_sheep_close_to_goal
+        else :
+            total_reward = deformation
 
         return total_reward, False, num_of_sheep_close_to_goal, deformation
+
+    def calc_observation_vector(self, mode) :
+        if mode == 'centroid' :
+            return self.calc_centroid_based_observation_vector()
+        elif mode == 'knearest' :
+            return self.calc_k_nearest_sheep_vector()
+        elif mode == 'pieslice' :
+            return self.calc_pie_slice_vector()
+        else :
+            print('Invalid mode selected!')
+            return None
+
 
     def calc_centroid_based_observation_vector(self):        
         sheep_pos = [sheep.get_position() for sheep in self.sheep]        
         sheep_pos_dict = {sheep.id: sheep.get_position() for sheep in self.sheep}
-        sheep_centroid  = np.mean(sheep_pos,axis=0)        
+        sheep_centroid  = np.mean(sheep_pos, axis=0)
         sheep_dists_from_centroid = cdist(sheep_pos, [sheep_centroid])
         sheep_dists_from_centroid_dict = {self.sheep[idxi].id: row[0] for idxi, row in enumerate(sheep_dists_from_centroid)}
         farthest_sheep_from_centroid_id = max(sheep_dists_from_centroid_dict, key=sheep_dists_from_centroid_dict.get)                
         farthest_sheep_from_centroid_position = sheep_pos_dict[farthest_sheep_from_centroid_id]                
         dog_position = self.dog.get_position()
         goal_position = self.goal
-        return np.concatenate([sheep_centroid, farthest_sheep_from_centroid_position, dog_position, goal_position],axis=0)
+        return np.concatenate([sheep_centroid, farthest_sheep_from_centroid_position, dog_position, goal_position],axis=0) / self.L
+
+    def calc_k_nearest_sheep_vector(self):
+        dog_position = self.dog.get_position()
+        goal_position = self.goal
+        sheep_distances = [(self.distance(sheep.get_position(), dog_position), sheep.get_position()) for sheep in self.sheep]
+        sheep_distances = sorted(sheep_distances)
+        k_nearest_sheep = sheep_distances[:self.k]
+        k_nearest_sheep = np.concatenate([sheep[1] for sheep in k_nearest_sheep])
+        return np.concatenate([k_nearest_sheep, dog_position, goal_position], axis=0) / self.L
+
+    def calc_pie_slice_vector(self):
+        return []
 
     # move the dog in the wanted position
     # and change the position of the sheep accordingly
@@ -312,7 +340,7 @@ class Sheepherding:
         for sheep in self.sheep:            
             sheep.step(sheep_positions=sheep_positions, sheep_dists=sheep_dists[sheep.id], dog_position=self.dog.get_position(), dog_dist=dog_dists[sheep.id],L=self.L)
 
-        obs = self.calc_centroid_based_observation_vector()
+        obs = self.calc_observation_vector(self.mode)
         reward, done, sheep_near_goal, deformation = self.calc_reward(collect)
 
         #print("reward: " + str(reward))
@@ -349,7 +377,7 @@ class Sheepherding:
         
         display[dog_x-scaling_factor:dog_x+scaling_factor, dog_y-scaling_factor:dog_y+scaling_factor,:] = (255,0,0)
 
-        obs = self.calc_centroid_based_observation_vector()
+        obs = self.calc_observation_vector(self.mode)
         obs = obs.astype(int)        
         obs *= scaling_factor        
         
@@ -401,7 +429,8 @@ if __name__ == "__main__":
         "goal":[10,10],
         "goal_radius":30,
         "max_steps_taken":500,
-        "render_mode": True
+        "render_mode": True,
+        "mode" : 'centroid'
     }
 
     # 1 desno

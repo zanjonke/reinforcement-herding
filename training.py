@@ -22,9 +22,9 @@ from sheepherding import Sheepherding
 class DQN(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(8, 512)
-        self.fc2 = nn.Linear(512, 2048)
-        self.fc3 = nn.Linear(2048, 4)
+        self.fc1 = nn.Linear(8, 4096)
+        self.fc2 = nn.Linear(4096, 4)
+        #self.fc3 = nn.Linear(2048, 4)
         #self.fc4 = nn.Linear(512, 1024)
         #self.fc5 = nn.Linear(1024, 2048)
         #self.fc6 = nn.Linear(2048, 4)
@@ -37,12 +37,13 @@ class DQN(nn.Module):
     def forward(self, x): 
 
         x = self.fc1(x)
-        x = nn.ReLU()(x)
+        x = self.leaky(x)
         x = nn.Dropout(p=0.3)(x)
         x = self.fc2(x)
-        x = nn.ReLU()(x)
-        x = nn.Dropout(p=0.3)(x)
-        x = self.fc3(x)
+        x = nn.Softmax(dim=0)(x)
+        #x = nn.ReLU()(x)
+        #x = nn.Dropout(p=0.3)(x)
+        #x = self.fc3(x)
         #x = F.relu(x)
         #x = nn.Dropout(p=0.4)(x)
         #x = self.fc4(x)
@@ -59,14 +60,14 @@ class DQN(nn.Module):
 class DQNShepherdTraining:
             
     def __init__(self, n_episodes=30000, gamma=0.95, batch_size=128, 
-                       epsilon=1.0, epsilon_min=0.1, epsilon_log_decay=0.9, max_steps=500):
-        self.memory = deque(maxlen=2000)
+                       epsilon=1.0, epsilon_min=0.1, epsilon_log_decay=0.9, max_steps=2000):
+        self.memory = deque(maxlen=max_steps*2)
 
         self.max_steps = max_steps
         
         #self.env = Game(visualize=False, load_map=True, map_name=self.map_name)
         strombom_typical_values = {
-            "N":10,
+            "N":50,
             "L":150,
             "n":10,
             "rs":50,
@@ -82,6 +83,7 @@ class DQNShepherdTraining:
             "goal":[10,10],
             "goal_radius":30,
             "max_steps_taken":max_steps,
+            "step_strength" : 3,
             "render_mode":False
         }
         #self.env = Game(visualize=False, load_map=True, map_name=self.map_name)
@@ -99,7 +101,7 @@ class DQNShepherdTraining:
         self.dqn = DQN()
         self.dqn.to(device=self.device)
         self.criterion = torch.nn.MSELoss()
-        self.opt = torch.optim.Adam(self.dqn.parameters(), lr=0.0004)
+        self.opt = torch.optim.Adam(self.dqn.parameters(), lr=0.001)
         
     def save_model(self) :
         torch.save(self.dqn.state_dict(), 'models/model.pt')
