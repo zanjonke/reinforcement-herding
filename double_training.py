@@ -60,7 +60,7 @@ class DQN(nn.Module):
 
 class DQNDoubleShepherdTraining:
 
-    def __init__(self, n_episodes=30000, gamma=0.95, batch_size=256,
+    def __init__(self, n_episodes=30000, gamma=0.95, batch_size=128,
                  epsilon=1.0, epsilon_min=0.1, epsilon_log_decay=0.9, max_steps=1000):
         self.memory_collect = deque(maxlen=max_steps*2)
         self.memory_drive = deque(maxlen=max_steps*2)
@@ -69,8 +69,8 @@ class DQNDoubleShepherdTraining:
 
         # self.env = Game(visualize=False, load_map=True, map_name=self.map_name)
         self.strombom_typical_values = {
-            "N": 40,
-            "L": 50,
+            "N": 30,
+            "L": 80,
             "n": 10,
             "rs": 50,
             "ra": 2,
@@ -111,7 +111,7 @@ class DQNDoubleShepherdTraining:
         self.opt_drive = torch.optim.Adam(self.dqn_drive.parameters(), lr=0.000015)
         self.dqn_collect = DQN(self.input_size)
         self.dqn_collect.to(device=self.device)
-        self.opt_collect = torch.optim.Adam(self.dqn_collect.parameters(), lr=0.000015)
+        self.opt_collect = torch.optim.Adam(self.dqn_collect.parameters(), lr=0.00003)
 
     def save_models(self):
         torch.save(self.dqn_drive.state_dict(), 'models/model_d_' + self.strombom_typical_values["mode"] + '.pt')
@@ -144,9 +144,11 @@ class DQNDoubleShepherdTraining:
     def replay(self, batch_size, e):
         y_batch, y_target_batch = [], []
         if self.collect :
-            minibatch = random.sample(self.memory_collect, min(len(self.memory_collect), batch_size))
+            memory_weights = [mem_unit[2].item() + self.strombom_typical_values['N'] for mem_unit in self.memory_collect]
+            minibatch = random.choices(self.memory_collect, weights=memory_weights, k=min(len(self.memory_collect), batch_size))
         else :
-            minibatch = random.sample(self.memory_drive, min(len(self.memory_drive), batch_size))
+            memory_weights = [mem_unit[2].item() + self.strombom_typical_values['N'] for mem_unit in self.memory_drive]
+            minibatch = random.choices(self.memory_drive, weights=memory_weights, k=min(len(self.memory_drive), batch_size))
         for state, action, reward, next_state, done in minibatch:
             y = self.dqn_collect(state[0].to(self.device)) if self.collect else self.dqn_drive(state[0].to(self.device))
             y_target = y.clone().detach()
@@ -187,14 +189,29 @@ class DQNDoubleShepherdTraining:
         if action == 3:
             return 'w'
 
+    def save_episode(self, initial_state, actions, file='./models/episode.txt'):
+        f = open(file, 'w')
+
+        f.write(str(initial_state['L']) + '\n')
+        f.write(str(initial_state['goal'][0]) + ',' + str(initial_state['goal'][1]) + '\n')
+        f.write(str(initial_state['dog'][0]) + ',' + str(initial_state['dog'][1]) + '\n')
+        f.write('sheep,' + str(len(initial_state['sheep'])) + '\n')
+        for sheep in initial_state['sheep'] :
+            f.write(str(sheep[0]) + ',' + str(sheep[1]) + '\n')
+        f.write('actions,' + str(len(actions)) + '\n')
+        for action in actions :
+            f.write(action[0] + ',')
     def run(self):
         scores = deque(maxlen=100)
         steps = deque(maxlen=100)
         max_asng = 0
+        min_steps = 1000
+
         with open(os.path.join('models/results.txt'), 'w') as fp:
             for e in range(self.n_episodes):
                 actions = []
-                state = self.preprocess_state(self.env.reset())
+                raw_state, initial_state = self.env.reset()
+                state = self.preprocess_state(raw_state)
                 done = False
                 self.collect = True
                 i = 0
@@ -220,6 +237,11 @@ class DQNDoubleShepherdTraining:
 
                     if done:
                         steps.append(i)
+                        if i < min_steps :
+                            min_steps = i
+                            print('Saving episode with ' + str(i) + ' steps | ASNG : ' + str(max_sheep))
+                            self.save_episode(initial_state, actions)
+
                 if e % 100 == 0:
                     print(actions)
                     print(actions[-10:])

@@ -194,7 +194,10 @@ class Sheepherding:
         self.step_strength = params.get("step_strength", 1)
         self.frames = []
         self.current_reward = 0
-        self.random_init()
+        if 'init_values' in params :
+            self.init(params['init_values'])
+        else :
+            self.random_init()
 
     def store_frames_in_mp4(self):      
         if len(self.frames)==0:
@@ -219,7 +222,11 @@ class Sheepherding:
         self.frames = []
         
         initial_state = self.calc_observation_vector(self.mode)
-        return initial_state
+        state_description = {'L' : self.L,
+                             'goal' : self.goal,
+                             'dog' : self.dog.get_position(),
+                             'sheep' : [sheep.get_position() for sheep in self.sheep]}
+        return initial_state, state_description
 
 
     # randomly initialize state
@@ -243,6 +250,27 @@ class Sheepherding:
             ) for i in range(0,self.N)]
         self.dog = Dog(starting_position=list(np.random.uniform(low=0.8,high=1.0, size=2)*self.L), ra=self.ra, N=self.N, e=self.e,step_strength=self.step_strength)
         #self.goal = list(np.random.uniform(low=0,high=0.5, size=2)*self.L)
+
+    # initialize state using outside data
+    def init(self, init_data):
+        self.goal = init_data[0]
+        self.dog = Dog(starting_position=np.array(init_data[1]), ra=self.ra,
+                       N=self.N, e=self.e, step_strength=self.step_strength)
+        self.sheep = [
+            Sheep(
+                _id=i,
+                starting_position=np.array(sheep),
+                ra=self.ra,
+                rs=self.rs,
+                n=self.n,
+                pa=self.pa,
+                c=self.c,
+                ps=self.ps,
+                h=self.h,
+                delta=self.delta,
+                p=self.p,
+                e=self.e
+            ) for i,sheep in init_data[2]]
 
     def calc_GCM(self):        
         return np.mean([sheep.get_position() for sheep in self.sheep],axis=0)

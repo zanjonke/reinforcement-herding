@@ -163,7 +163,8 @@ class DQNShepherdTraining:
         with open(os.path.join('models/results.txt'), 'w') as fp :
             for e in range(self.n_episodes):
                 actions = []
-                state = self.preprocess_state(self.env.reset())
+                raw_state, _ = self.env.reset()
+                state = self.preprocess_state(raw_state)
                 done = False
                 i = 0
                 while not done:
