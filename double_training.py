@@ -61,7 +61,7 @@ class DQN(nn.Module):
 class DQNDoubleShepherdTraining:
 
     def __init__(self, n_episodes=30000, gamma=0.95, batch_size=128,
-                 epsilon=1.0, epsilon_min=0.1, epsilon_log_decay=0.9, max_steps=1000):
+                 epsilon=1.0, epsilon_min=0.1, epsilon_log_decay=0.9, max_steps=500):
         self.memory_collect = deque(maxlen=max_steps*2)
         self.memory_drive = deque(maxlen=max_steps*2)
 
@@ -108,10 +108,10 @@ class DQNDoubleShepherdTraining:
         self.dqn_drive = DQN(self.input_size)
         self.dqn_drive.to(device=self.device)
         self.criterion = torch.nn.MSELoss()
-        self.opt_drive = torch.optim.Adam(self.dqn_drive.parameters(), lr=0.000015)
+        self.opt_drive = torch.optim.Adam(self.dqn_drive.parameters(), lr=0.000005)
         self.dqn_collect = DQN(self.input_size)
         self.dqn_collect.to(device=self.device)
-        self.opt_collect = torch.optim.Adam(self.dqn_collect.parameters(), lr=0.00003)
+        self.opt_collect = torch.optim.Adam(self.dqn_collect.parameters(), lr=0.000005)
 
     def save_models(self):
         torch.save(self.dqn_drive.state_dict(), 'models/model_d_' + self.strombom_typical_values["mode"] + '.pt')
@@ -144,10 +144,10 @@ class DQNDoubleShepherdTraining:
     def replay(self, batch_size, e):
         y_batch, y_target_batch = [], []
         if self.collect :
-            memory_weights = [mem_unit[2].item() + self.strombom_typical_values['N'] for mem_unit in self.memory_collect]
+            memory_weights = [mem_unit[2].item() + 1 for mem_unit in self.memory_collect]
             minibatch = random.choices(self.memory_collect, weights=memory_weights, k=min(len(self.memory_collect), batch_size))
         else :
-            memory_weights = [mem_unit[2].item() + self.strombom_typical_values['N'] for mem_unit in self.memory_drive]
+            memory_weights = [mem_unit[2].item() + 1 for mem_unit in self.memory_drive]
             minibatch = random.choices(self.memory_drive, weights=memory_weights, k=min(len(self.memory_drive), batch_size))
         for state, action, reward, next_state, done in minibatch:
             y = self.dqn_collect(state[0].to(self.device)) if self.collect else self.dqn_drive(state[0].to(self.device))
@@ -237,7 +237,7 @@ class DQNDoubleShepherdTraining:
 
                     if done:
                         steps.append(i)
-                        if i < min_steps :
+                        if i < min_steps or (e > 1000 and i < 200):
                             min_steps = i
                             print('Saving episode with ' + str(i) + ' steps | ASNG : ' + str(max_sheep))
                             self.save_episode(initial_state, actions)

@@ -73,6 +73,7 @@ class DQNSheepHerder:
         }
         if self.run_episode :
             strombom_typical_values['init_values'] = (goal, dog, sheep)
+            strombom_typical_values['max_steps_taken'] = len(self.actions) - 1
             self.env = Sheepherding(**strombom_typical_values)
         else :
             self.env = Sheepherding(**strombom_typical_values)
