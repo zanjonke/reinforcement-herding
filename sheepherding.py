@@ -308,11 +308,13 @@ class Sheepherding:
             return reward_from_distances[0] + 1000, True, num_of_sheep_close_to_goal, deformation
 
         if not collect :
-            total_reward = self.previous_distance - dist_to_goal
-            total_reward += num_of_sheep_close_to_goal - self.previous_SNG
+            total_reward = dist_to_goal / (-5) + num_of_sheep_close_to_goal
+            #total_reward = self.previous_distance - dist_to_goal
+            #total_reward += num_of_sheep_close_to_goal - self.previous_SNG
             #total_reward = -0.5 if abs(total_reward) < 0.01 else total_reward
         else :
-            total_reward = deformation - self.previous_deformation
+            total_reward = deformation
+            #total_reward = deformation - self.previous_deformation
 
         return total_reward, False, num_of_sheep_close_to_goal, deformation
 
@@ -357,6 +359,7 @@ class Sheepherding:
     # also return the next state, and reward for this action
     #def step(self, action):
     def do_action(self, action, collect=True):
+        """
         GCM = self.calc_GCM()
         max_dist_from_GCM = self.ra * (self.N ** (2 / 3))
 
@@ -369,7 +372,7 @@ class Sheepherding:
         self.previous_distance = self.distance(GCM, self.goal)
         self.previous_SNG = num_of_sheep_close_to_goal
         self.previous_deformation = deformation
-
+        """
         self.steps_taken += 1
         self.dog.step(action,self.L)
 
