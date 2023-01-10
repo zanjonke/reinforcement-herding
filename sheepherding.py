@@ -490,9 +490,9 @@ class Sheepherding:
 
 
         img = Image.fromarray(display)
-        draw = ImageDraw.Draw(img)
+        #draw = ImageDraw.Draw(img)
         # font = ImageFont.truetype(<font-file>, <font-size>)
-        font = ImageFont.truetype("Aaargh/Aaargh.ttf", 32)
+        #font = ImageFont.truetype("Aaargh/Aaargh.ttf", 32)
         # draw.text((x, y),"Sample Text",(r,g,b))
         
         #draw.text((0, 0),"Current reward: " + str(np.round(self.current_reward,2)) + ", current step: " + str(self.steps_taken),(255,255,255),font=font)
