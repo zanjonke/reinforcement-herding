@@ -23,8 +23,8 @@ The main files and folders are the following:
 ```
 
 Where
-- **_double_testing.py_** implements the testing framework for hierarchical model ie. one model ofr collecting and another for driving
-- **_double_training.py_** implements the training framework for hierarchical model ie. one model ofr collecting and another for driving
+- **_double_testing.py_** implements the testing framework for hierarchical model ie. one model for collecting and another for driving
+- **_double_training.py_** implements the training framework for hierarchical model ie. one model for collecting and another for driving
 - **_models_** contains DQN models stored during training
 - **_sheepherding.py_** implements the Strombom et. al. sheepherding environment
 - **_testing.py_** implements the basic DQN framework for solving environments
