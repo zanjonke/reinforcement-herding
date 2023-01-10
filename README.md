@@ -10,18 +10,27 @@ The goal of this project was to develop a reinforcement learning model which is 
 
 ## Repository description
 
+The main files and folders are the following: 
+
 ```bash
 .
-├── double_testing.py (implements the testing framework for hierarchical model ie. one model ofr collecting and another for driving)
-├── double_training.py (implements the training framework for hierarchical model ie. one model ofr collecting and another for driving)
-├── models (model stored from training sessions)
-├── plot_asng.py 
-├── requirements.txt 
-├── sheepherding.py (implements the Strombom et. al. sheepherding environment)
-├── testing.py (implements the basic DQN framework for solving environments)
-├── training.py (testing framework for basic DQN framework)
-└── videos (supplementary videos)
+├── double_testing.py
+├── double_training.py 
+├── models 
+├── sheepherding.py 
+├── testing.py 
+├── training.py 
+└── videos 
 ```
+
+Where
+- **_double_testing.py_** implements the testing framework for hierarchical model ie. one model ofr collecting and another for driving
+- **_double_training.py_** implements the training framework for hierarchical model ie. one model ofr collecting and another for driving
+- **_models_** contains DQN models stored during training
+- **_sheepherding.py_** implements the Strombom et. al. sheepherding environment
+- **_testing.py_** implements the basic DQN framework for solving environments
+- **_training.py_** implements the testing framework for basic DQN framework
+- **_videos_** contains supplementary videos
 
 # Literature
 
