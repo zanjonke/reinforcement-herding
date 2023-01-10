@@ -36,7 +36,8 @@ First install the required packages by using
 
 `pip install -r requirements.txt`
 
-After the installation, the file can be run. The simulation will run on a randomised field.
+After the installation, the file can be run. The latest model is automatically selected. The simulation will be run on a randomised field.
+
 The result of the simulation will be saved to `videos/sheepherding_game.mp4`
 
 # Literature
