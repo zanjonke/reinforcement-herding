@@ -28,6 +28,17 @@ Where
 - **_testing.py_** implements the basic DQN framework for solving environments
 - **_training.py_** implements the testing framework for basic DQN framework
 
+
+## Running the project
+
+Our final model can be run using the double_training.py file.
+First install the required packages by using
+
+`pip install -r requirements.txt`
+
+After the installation, the file can be run. The simulation will run on a randomised field.
+The result of the simulation will be saved to `videos/sheepherding_game.mp4`
+
 # Literature
 
 [1] Strömbom D., Mann R. P., Wilson A. M., Hailes S., Morton A. J., Sumpter D. J. T. and King A. J.,
