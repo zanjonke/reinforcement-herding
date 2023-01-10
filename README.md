@@ -1,6 +1,4 @@
-# reinforcement-herding
-
-Learning the herding task using reinforcement learning
+# Reinforcement herding
 
 ## Project description
 
