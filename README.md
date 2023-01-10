@@ -19,8 +19,7 @@ The main files and folders are the following:
 ├── models 
 ├── sheepherding.py 
 ├── testing.py 
-├── training.py 
-└── videos 
+└── training.py  
 ```
 
 Where
@@ -30,7 +29,6 @@ Where
 - **_sheepherding.py_** implements the Strombom et. al. sheepherding environment
 - **_testing.py_** implements the basic DQN framework for solving environments
 - **_training.py_** implements the testing framework for basic DQN framework
-- **_videos_** contains supplementary videos
 
 # Literature
 
