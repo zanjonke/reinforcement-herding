@@ -8,10 +8,11 @@ import random
 #import matplotlib.pyplot as plt
 import math
 
-np.random.seed(1)
+#np.random.seed(1)
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw 
+import imageio
 
 class Dog:
     
@@ -190,7 +191,7 @@ class Sheepherding:
         self.max_steps_taken = params["max_steps_taken"]
         self.action_space = [0,1,2,3]
         self.render_mode = params["render_mode"]
-        self.store_video_file_name = params.get("store_video_file_name", "sheepherding_game.mp4")
+        self.store_video_file_name = params.get("store_video_file_name", "sheepherding_game_v3.mp4")
         self.step_strength = params.get("step_strength", 1)
         self.frames = []
         self.current_reward = 0
@@ -198,14 +199,21 @@ class Sheepherding:
             self.init(params['init_values'])
         else :
             self.random_init()
+    def store_frames_in_gif(self, filename):    
+        print("store_frames_in_gif: len(self.frames): "+ str(len(self.frames)))  
+        if len(self.frames)==0:
+            return
+        imageio.mimsave(filename, self.frames)
+       
 
-    def store_frames_in_mp4(self):      
+    def store_frames_in_mp4(self):    
+        print("store_frames_in_mp4: len(self.frames): "+ str(len(self.frames)))  
         if len(self.frames)==0:
             return
         
         # Define the codec and create VideoWriter object
         fourcc = cv.VideoWriter_fourcc(*'MP4V')
-        
+        print("self.store_video_file_name: " + str(self.store_video_file_name))
         out = cv.VideoWriter(self.store_video_file_name,fourcc, 20.0, self.frames[0].shape[0:2])
 
         for frame in self.frames:            
@@ -231,8 +239,8 @@ class Sheepherding:
 
     # randomly initialize state
     def random_init(self):
-        random_x = np.random.uniform(low=0.5,high=0.8, size=self.N)*self.L
-        random_y = np.random.uniform(low=0.5,high=0.8, size=self.N)*self.L
+        random_x = np.random.uniform(low=0.4,high=0.8, size=self.N)*self.L
+        random_y = np.random.uniform(low=0.4,high=0.8, size=self.N)*self.L
         self.sheep = [
             Sheep(
                 _id=i, 
@@ -248,7 +256,7 @@ class Sheepherding:
                 p=self.p,
                 e=self.e
             ) for i in range(0,self.N)]
-        self.dog = Dog(starting_position=list(np.random.uniform(low=0.8,high=1.0, size=2)*self.L), ra=self.ra, N=self.N, e=self.e,step_strength=self.step_strength)
+        self.dog = Dog(starting_position=list(np.random.uniform(low=0.8,high=1, size=2)*self.L), ra=self.ra, N=self.N, e=self.e,step_strength=self.step_strength)
         #self.goal = list(np.random.uniform(low=0,high=0.5, size=2)*self.L)
 
     # initialize state using outside data
@@ -406,41 +414,88 @@ class Sheepherding:
         
         #self.dog.strombom_step(sheep_positions, sheep_dists)
 
+    
+
     def render(self):
         scaling_factor = 4
         display = np.ones((self.L*scaling_factor, self.L*scaling_factor, 3), np.uint8)
+        GCM = self.calc_GCM()
+        max_dist_from_GCM = self.ra*(self.N**(2/3))
         for sheep in self.sheep:
             sheep_x, sheep_y = sheep.get_position()
             
             sheep_x = int(sheep_x)*scaling_factor
             sheep_y = int(sheep_y)*scaling_factor
-            display[sheep_x-scaling_factor:sheep_x+scaling_factor, sheep_y-scaling_factor:sheep_y+scaling_factor:,:] = (255,255,255)
+
+            sheep_dist_from_centroid = cdist([sheep.get_position()], [GCM])[0][0]
+            sheep_dist_from_goal = cdist([sheep.get_position()], [self.goal])[0][0]
+            if sheep_dist_from_centroid > max_dist_from_GCM:
+                color = (255,0,0)
+            else:
+                color = (255,255,255)
+            if sheep_dist_from_goal <= self.goal_radius:
+                color = (0,255,0)
+                      
+            sheep_min_x = max(sheep_x-scaling_factor, 0)
+            sheep_max_x = min(sheep_x+scaling_factor, self.L*scaling_factor)
+            sheep_min_y = max(sheep_y-scaling_factor,0)
+            sheep_max_y = min(sheep_y+scaling_factor, self.L*scaling_factor)
+
+            display[sheep_min_x:sheep_max_x, sheep_min_y:sheep_max_y,:] = color
+            #display[sheep_x-scaling_factor:sheep_x+scaling_factor, sheep_y-scaling_factor:sheep_y+scaling_factor:,:] = (255,255,255)
 
         dog_x, dog_y = self.dog.get_position()
         dog_x = int(dog_x)*scaling_factor
         dog_y = int(dog_y)*scaling_factor
-        
-        display[dog_x-scaling_factor:dog_x+scaling_factor, dog_y-scaling_factor:dog_y+scaling_factor,:] = (255,0,0)
+        #
+        #display[dog_x-scaling_factor:dog_x+scaling_factor, dog_y-scaling_factor:dog_y+scaling_factor,:] = (255,0,0)
+
+        color = (0,0,255)                                                                                                    
+        dog_min_x = max(dog_x-scaling_factor, 0)
+        dog_max_x = min(dog_x+scaling_factor, self.L*scaling_factor)
+
+        dog_min_y = max(dog_y-scaling_factor,0)
+        dog_max_y = min(dog_y+scaling_factor,  self.L*scaling_factor)
+
+        display[dog_min_x:dog_max_x, dog_min_y:dog_max_y,:] = color
 
         obs = self.calc_observation_vector(self.mode)
         obs = obs.astype(int)        
         obs *= scaling_factor        
         
-
         display[obs[0]-(scaling_factor):obs[0]+(scaling_factor), obs[1]-(scaling_factor):obs[1]+(scaling_factor),:] = (0,255,0)
-        display[obs[2]-scaling_factor:obs[2]+scaling_factor, obs[3]-scaling_factor:obs[3]+scaling_factor,:] = (0,0,255)
+        display[obs[2]-scaling_factor:obs[2]+scaling_factor, obs[3]-scaling_factor:obs[3]+scaling_factor,:] = (255,0,0)
 
         goal_x, goal_y = self.goal
         goal_x = int(goal_x)*scaling_factor
         goal_y = int(goal_y)*scaling_factor
-        display[goal_x-scaling_factor:goal_x+scaling_factor, goal_y-scaling_factor:goal_y+scaling_factor,:] = (0,255,255)        
+        display[goal_x-scaling_factor:goal_x+scaling_factor, goal_y-scaling_factor:goal_y+scaling_factor,:] = (255,255,0)        
+
+        fis = np.linspace(0,2*np.pi, 100)
+        xs = self.goal_radius*np.cos(fis) + self.goal[0]
+        ys = self.goal_radius*np.sin(fis) + self.goal[1]
+        
+        for x,y in zip(xs, ys):
+            #print("x: " + str(x))
+            #print("y: " + str(y))
+            if x < 0:
+                continue
+            if y < 0:
+                continue
+
+            x = round(x)*scaling_factor
+            y = round(y)*scaling_factor
+            #display[x-int(scaling_factor/2):x+int(scaling_factor/2), y-int(scaling_factor/2):y+int(scaling_factor/2),:] = (181, 228, 255)        
+        #exit()
+
+
         img = Image.fromarray(display)
         draw = ImageDraw.Draw(img)
         # font = ImageFont.truetype(<font-file>, <font-size>)
         font = ImageFont.truetype("Aaargh/Aaargh.ttf", 32)
         # draw.text((x, y),"Sample Text",(r,g,b))
         
-        draw.text((0, 0),"Current reward: " + str(np.round(self.current_reward,2)) + ", current step: " + str(self.steps_taken),(255,255,255),font=font)
+        #draw.text((0, 0),"Current reward: " + str(np.round(self.current_reward,2)) + ", current step: " + str(self.steps_taken),(255,255,255),font=font)
         self.frames.append(np.array(img))
         #cv.imshow(title, display)
         #cv.waitKey(1)
@@ -458,8 +513,8 @@ class Sheepherding:
 
 if __name__ == "__main__":
     strombom_typical_values = {
-        "N":10,
-        "L":150,
+        "N":30,
+        "L":80,
         "n":10,
         "rs":15,
         "ra":2,
@@ -474,6 +529,7 @@ if __name__ == "__main__":
         "goal":[10,10],
         "goal_radius":30,
         "max_steps_taken":500,
+        "step_strength": 1,
         "render_mode": True,
         "mode" : 'centroid'
     }
@@ -482,13 +538,16 @@ if __name__ == "__main__":
     # 2 dol
     # 3 levo
     # 4 gor
-    S = Sheepherding(**strombom_typical_values)
-    for i in range(0,200):
-        _,reward, done, _, _ = S.do_action(0,collect=False)
-        _,reward, done, _, _ = S.do_action(1,collect=False) 
-        #= S.do_action(1)
+    
+    for game_idx in range(0,9):
+        S = Sheepherding(**strombom_typical_values)
+        for i in range(0,200):
+            _,reward, done, _, _ = S.do_action(random.sample([0,1,2,3],k=1)[0],collect=False)
 
-        #S.render(title=str(i))
-        print("reward: " + str(reward))
-    S.store_frames_in_mp4()
+            #= S.do_action(1)
+
+            #S.render(title=str(i))
+
+        #S.store_frames_in_mp4()
+        S.store_frames_in_gif("example_"+str(game_idx) + ".gif")
         
